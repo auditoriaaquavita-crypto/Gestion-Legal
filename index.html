@@ -151,8 +151,6 @@ label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--mu
 .syncok{color:var(--ok)}.syncerr{color:var(--bad)}
 @media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(20px);opacity:.6}}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
 </head>
 <body>
 
@@ -163,8 +161,8 @@ label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--mu
     <div class="eyebrow">Área de Cobranzas · Gestión judicial</div>
     <h1>Gestión Legal de Clientes</h1>
     <form id="lgForm" novalidate>
-      <label>Mail<input id="lgEmail" type="email" autocomplete="username" required></label>
-      <label>Contraseña<input id="lgPass" type="password" autocomplete="current-password" required></label>
+      <input type="text" name="username" value="gestion-legal" autocomplete="username" hidden>
+      <label>Contraseña de acceso<input id="lgPass" type="password" autocomplete="current-password" required></label>
       <button class="btn primary" type="submit" id="lgBtn">Ingresar</button>
     </form>
     <div class="note" id="lgMsg" role="status"></div>
@@ -534,81 +532,88 @@ function renderSync(){
   else t+=" · Carta documento · Juicio ejecutivo · Sentencia";
   el.textContent=t;
 }
-async function openSws(){
-  document.querySelectorAll(".scrim,.drawer").forEach(n=>n.remove());drawer=null;
-  const scrim=document.createElement("div");scrim.className="scrim";
-  const d=document.createElement("aside");d.className="drawer";d.setAttribute("role","dialog");d.setAttribute("aria-label","Conexión SWS");
-  const close=()=>{scrim.remove();d.remove()};scrim.onclick=close;
-  let cur={};
-  if(uid){try{const s=await db.doc("data/users/"+uid+"/sws").get();if(s.exists)cur=s.data()}catch(e){}}
-  const st=syncInfo?(syncInfo.ok===false?`<span class="syncerr">Última sincronización con error: ${esc(syncInfo.mensaje||"")}</span>`:`<span class="syncok">Última sincronización: ${new Date(syncInfo.ultima).toLocaleString("es-AR")} · ${esc(String(syncInfo.clientes??"—"))} clientes con la etiqueta</span>`):"Todavía no se sincronizó.";
-  d.innerHTML=`<div class="dhead"><div><div class="eyebrow">Integración</div><h3>Conexión SWS</h3></div><button class="btn" id="swClose">Cerrar</button></div>
-  <section class="blk"><h4>Usuario de integración</h4>
-   <p class="note" style="margin:0">Estos datos se guardan en tu espacio privado del tablero: nadie más los ve, aunque compartas el tablero. Usá un usuario de integración dedicado, no tu usuario personal.</p>
-   <div class="grid2">
-    <label>Usuario<input id="sw_user" autocomplete="off" value="${esc(cur.username||"")}"></label>
-    <label>Contraseña<input id="sw_pass" type="password" autocomplete="new-password" placeholder="${cur.password?"•••••••• (guardada)":""}"></label>
-    <label class="full">Dirección del sistema<input id="sw_url" value="${esc(cur.baseUrl||"https://aquavita.sistemaws.com")}"></label>
-   </div>
-   <h4 style="margin-top:6px">Supabase (publicación en GitHub)</h4>
-   <div class="grid2">
-    <label class="full">Project URL<input id="sb_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(cur.supabaseUrl||"")}"></label>
-    <label class="full">Clave service_role (secreta)<input id="sb_key" type="password" autocomplete="new-password" placeholder="${cur.supabaseServiceKey?"•••••••• (guardada)":""}"></label>
-   </div>
-   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="sw_save">Guardar conexión</button><span class="note" id="sw_msg"></span></div>
-  </section>
-  <section class="blk"><h4>Estado</h4><div class="note">${st}</div>
-   <div class="note">La sincronización trae los clientes con la etiqueta "Gestion Legal" y genera los tickets de cada novedad en SWS en los horarios programados.</div></section>`;
-  document.body.append(scrim,d);
-  d.querySelector("#swClose").onclick=close;
-  d.querySelector("#sw_save").onclick=async()=>{
-    if(!uid){d.querySelector("#sw_msg").textContent="No se pudo identificar tu usuario. Recargá la página.";return}
-    const u=d.querySelector("#sw_user").value.trim(),pw=d.querySelector("#sw_pass").value,url=d.querySelector("#sw_url").value.trim().replace(/\/+$/,"");
-    if(!u||(!pw&&!cur.password)){d.querySelector("#sw_msg").textContent="Completá usuario y contraseña.";return}
-    const sbu=d.querySelector("#sb_url").value.trim().replace(/\/+$/,""),sbk=d.querySelector("#sb_key").value.trim();
-    const data={username:u,password:pw||cur.password,baseUrl:url||"https://aquavita.sistemaws.com",supabaseUrl:sbu||cur.supabaseUrl||"",supabaseServiceKey:sbk||cur.supabaseServiceKey||"",actualizado:new Date().toISOString()};
-    try{await db.doc("data/users/"+uid+"/sws").set(data);cur=data;d.querySelector("#sw_pass").value="";d.querySelector("#sw_pass").placeholder="•••••••• (guardada)";d.querySelector("#sb_key").value="";if(data.supabaseServiceKey)d.querySelector("#sb_key").placeholder="•••••••• (guardada)";d.querySelector("#sw_msg").textContent="Conexión guardada."}
-    catch(e){d.querySelector("#sw_msg").textContent="No se pudo guardar. Probá de nuevo."}
-  };
-}
-
-
-/* ---------- base de datos (Supabase) ---------- */
+/* ---------- datos cifrados en GitHub ---------- */
+const GH={owner:"auditoriaaquavita-crypto",repo:"gestion-legal",branch:"main",datos:"data/datos.enc.json",acceso:"data/acceso.enc.json"};
+const TE=new TextEncoder(),TD=new TextDecoder();
+const b64=u8=>{let x="";for(let i=0;i<u8.length;i+=0x8000)x+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(x)};
+const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function deriveKey(pw,saltB64,iter){const base=await crypto.subtle.importKey("raw",TE.encode(pw),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt:unb64(saltB64),iterations:iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
+async function openEnv(env,key){const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(env.iv)},key,unb64(env.ct));return JSON.parse(TD.decode(pt))}
+async function sealEnv(obj,ctx){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},ctx.key,TE.encode(JSON.stringify(obj))));return {v:1,kdf:"pbkdf2-sha256",iter:ctx.iter,salt:ctx.salt,iv:b64(iv),ct:b64(ct)}}
 function showLogin(msg){$("#login").hidden=false;$("#band").hidden=true;$("#app").hidden=true;$("#lgMsg").textContent=msg||""}
-function mkDownloads(){return {save:async({filename,data})=>{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}}}
-function mkDb(sb){
-  const cache={casos:new Map(),config:new Map()};
+function mkDownloads(){return {save:async({filename,data})=>{const bl=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(bl);const el=document.createElement("a");el.href=u;el.download=filename;document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}}}
+const ghApi=(ctx,path,opt={})=>fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}${opt.method?"":"?ref="+GH.branch}`,{...opt,cache:"no-store",headers:{Accept:"application/vnd.github+json",Authorization:"Bearer "+ctx.token,"X-GitHub-Api-Version":"2022-11-28",...(opt.headers||{})}});
+async function ghGetDatos(ctx){
+  const r=await ghApi(ctx,GH.datos);
+  if(r.status===404)return {sha:null,state:{casos:{},sync:null}};
+  if(r.status===401||r.status===403){const e=new Error("token");e.code="token";throw e}
+  if(!r.ok)throw new Error("GitHub "+r.status);
+  const j=await r.json();const env=JSON.parse(TD.decode(unb64(String(j.content).replace(/\s/g,""))));
+  const key=env.salt===ctx.salt&&env.iter===ctx.iter?ctx.key:await deriveKey(ctx.pw,env.salt,env.iter);
+  const st=await openEnv(env,key);st.casos=st.casos||{};return {sha:j.sha,state:st};
+}
+async function ghPutDatos(ctx,env,msg){
+  const body={message:msg,content:b64(TE.encode(JSON.stringify(env))),branch:GH.branch};if(ctx.sha)body.sha=ctx.sha;
+  const r=await ghApi(ctx,GH.datos,{method:"PUT",body:JSON.stringify(body),headers:{"Content-Type":"application/json"}});
+  if(r.ok){const j=await r.json();return {ok:true,sha:j.content.sha}}
+  if(r.status===409||r.status===422)return {conflict:true};
+  if(r.status===401||r.status===403)return {token:true};
+  return {error:new Error("GitHub "+r.status)};
+}
+function mkDb(ctx){
   const colL=[],docL={};
-  const snapDoc=(id,d)=>({id,exists:d!==undefined,data:()=>d});
-  const emitCol=()=>{const docs=[...cache.casos.entries()].map(([id,d])=>snapDoc(id,d));colL.forEach(f=>f({docs,size:docs.length,empty:!docs.length}))};
-  const emitDoc=(t,id)=>{(docL[t+"/"+id]||[]).forEach(f=>f(snapDoc(id,cache[t].get(id))))};
-  const err=e=>{const x=new Error(e.message||"error");x.code=(e.code==="42501"||/permission|policy/i.test(e.message||""))?"invalid_argument":"unavailable";return x};
-  const split=p=>{const [t,id]=p.split("/");return [t,id]};
-  async function loadAll(){const {data,error}=await sb.from("casos").select("id,data");if(error)throw err(error);cache.casos=new Map(data.map(r=>[r.id,r.data]));emitCol()}
-  async function loadOne(t,id){const {data,error}=await sb.from(t).select("id,data").eq("id",id).maybeSingle();if(error)throw err(error);if(data)cache[t].set(id,data.data);else cache[t].delete(id);t==="casos"?emitCol():emitDoc(t,id)}
-  let subscribed=false;
-  function subscribe(){if(subscribed)return;subscribed=true;
-    sb.channel("gl").on("postgres_changes",{event:"*",schema:"public",table:"casos"},p=>{const id=(p.new&&p.new.id)||(p.old&&p.old.id);if(p.eventType==="DELETE"){cache.casos.delete(id);emitCol()}else{cache.casos.set(id,p.new.data);emitCol()}})
-      .on("postgres_changes",{event:"*",schema:"public",table:"config"},p=>{const id=(p.new&&p.new.id)||(p.old&&p.old.id);if(p.eventType==="DELETE")cache.config.delete(id);else cache.config.set(id,p.new.data);emitDoc("config",id)})
-      .subscribe();
-    setInterval(()=>{loadAll().catch(()=>{});loadOne("config","sync").catch(()=>{})},60000);
+  const snap=(id,d)=>({id,exists:d!==undefined&&d!==null,data:()=>d});
+  const emit=()=>{const docs=Object.entries(ctx.state.casos).map(([id,d])=>snap(id,d));colL.forEach(f=>f({docs,size:docs.length,empty:!docs.length}));(docL["config/sync"]||[]).forEach(f=>f(snap("sync",ctx.state.sync)))};
+  let ops=[],timer=null,busy=false;
+  const apply=(st,o)=>{if(o.op==="set")st.casos[o.id]=o.d;else if(o.op==="update"){if(st.casos[o.id])st.casos[o.id]=deepMerge(st.casos[o.id],o.p)}else if(o.op==="delete")delete st.casos[o.id]};
+  const later=ms=>{clearTimeout(timer);timer=setTimeout(commit,ms)};
+  function enqueue(o){return new Promise((res,rej)=>{o.res=res;o.rej=rej;apply(ctx.state,o);ops.push(o);emit();later(2000)})}
+  async function commit(){
+    if(busy){later(800);return}if(!ops.length)return;busy=true;const batch=ops;ops=[];let tries=0,wait=1500;
+    try{
+      for(;;){
+        const env=await sealEnv(ctx.state,ctx);
+        const r=await ghPutDatos(ctx,env,"Tablero: "+batch.length+" cambio(s)");
+        if(r.ok){ctx.sha=r.sha;batch.forEach(o=>o.res());break}
+        if(r.conflict&&tries<4){tries++;const rem=await ghGetDatos(ctx);batch.forEach(o=>apply(rem.state,o));ops.forEach(o=>apply(rem.state,o));ctx.state=rem.state;ctx.sha=rem.sha;emit();continue}
+        if(r.token){wait=30000;throw Object.assign(new Error("token"),{code:"token"})}
+        throw r.error||new Error("conflicto");
+      }
+    }catch(e){ops=batch.concat(ops);toast(e.code==="token"?"El token de GitHub venció o no tiene permiso de escritura. Avisá a la administradora.":"No se pudo guardar en GitHub. Reintentando…");wait=Math.max(wait,e.code==="token"?30000:5000)}
+    finally{busy=false;if(ops.length)later(wait)}
   }
-  function doc(path){const [t,id]=split(path);return{
+  setInterval(async()=>{if(busy||ops.length)return;try{const rem=await ghGetDatos(ctx);if(rem.sha&&rem.sha!==ctx.sha&&!ops.length&&!busy){ctx.state=rem.state;ctx.sha=rem.sha;emit()}}catch(e){}},45000);
+  window.addEventListener("beforeunload",e=>{if(ops.length||busy){e.preventDefault();e.returnValue=""}});
+  const gen=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  function doc(path){const [t,id]=path.split("/");return{
     id,path,
-    async get(){await loadOne(t,id);return snapDoc(id,cache[t].get(id))},
-    async set(d){cache[t].set(id,d);t==="casos"?emitCol():emitDoc(t,id);const {error}=await sb.from(t).upsert({id,data:d,updated_at:new Date().toISOString()});if(error)throw err(error)},
-    async update(p){let cur=cache[t].get(id);if(cur===undefined){await loadOne(t,id);cur=cache[t].get(id)}if(cur===undefined){const x=new Error("no existe");x.code="invalid_argument";throw x}
-      const m=deepMerge(cur,p);cache[t].set(id,m);t==="casos"?emitCol():emitDoc(t,id);
-      const {error}=await sb.from(t).update({data:m,updated_at:new Date().toISOString()}).eq("id",id);if(error)throw err(error)},
-    async delete(){cache[t].delete(id);t==="casos"?emitCol():emitDoc(t,id);const {error}=await sb.from(t).delete().eq("id",id);if(error)throw err(error)},
-    onSnapshot(fn,onErr){(docL[t+"/"+id]=docL[t+"/"+id]||[]).push(fn);loadOne(t,id).catch(e=>onErr&&onErr(e));subscribe();return()=>{}}
+    async get(){return snap(id,t==="casos"?ctx.state.casos[id]:ctx.state.sync)},
+    set:d=>enqueue({op:"set",id,d}),
+    update:p=>enqueue({op:"update",id,p}),
+    delete:()=>enqueue({op:"delete",id}),
+    onSnapshot(fn){(docL[path]=docL[path]||[]).push(fn);fn(snap(id,t==="casos"?ctx.state.casos[id]:ctx.state.sync));return()=>{}}
   }}
   function collection(name){return{
-    doc:(id)=>doc(name+"/"+(id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,8)))),
-    async add(d){const id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);await doc(name+"/"+id).set(d);return {id}},
-    onSnapshot(fn,onErr){colL.push(fn);loadAll().catch(e=>onErr&&onErr(e));subscribe();return()=>{}}
+    doc:id=>doc(name+"/"+(id||gen())),
+    add(d){const id=gen();enqueue({op:"set",id,d}).catch(()=>{});return Promise.resolve({id})},
+    onSnapshot(fn){colL.push(fn);emit();return()=>{}}
   }}
   return {doc,collection};
+}
+async function start(pw){
+  let acc;
+  try{const r=await fetch(`https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${GH.acceso}?t=${Date.now()}`,{cache:"no-store"});if(!r.ok)throw 0;acc=await r.json()}
+  catch(e){throw new Error("El tablero todavía no está configurado. Probá de nuevo en unos minutos.")}
+  const ctx={pw,salt:acc.salt,iter:acc.iter,key:await deriveKey(pw,acc.salt,acc.iter)};
+  try{ctx.token=(await openEnv(acc,ctx.key)).token}catch(e){throw new Error("Contraseña incorrecta.")}
+  let rem;try{rem=await ghGetDatos(ctx)}catch(e){throw new Error(e.code==="token"?"El token de GitHub venció. Avisá a la administradora.":"No se pudieron leer los datos. Probá de nuevo.")}
+  ctx.state=rem.state;ctx.sha=rem.sha;
+  try{sessionStorage.setItem("gl_pw",pw)}catch(e){}
+  $("#login").hidden=true;$("#band").hidden=false;$("#app").hidden=false;$("#who").textContent="Acceso compartido · los cambios se guardan cifrados en GitHub";
+  db=mkDb(ctx);downloads=mkDownloads();logoId="static";
+  $("#expXls").hidden=false;$("#expPdf").hidden=false;renderLogo();
+  db.doc("config/sync").onSnapshot(x=>{syncInfo=x.exists?x.data():null;renderSync()});
+  db.collection("casos").onSnapshot(x=>{casos=x.docs.map(y=>({...y.data(),_id:y.id})).sort((a,b)=>(a.cliente||"").localeCompare(b.cliente||"","es"));render();refreshDrawer()});
 }
 
 /* ---------- eventos ---------- */
@@ -620,30 +625,12 @@ $("#fEstado").addEventListener("change",render);
 renderSync();
 
 (async()=>{
-  const cfg=window.GL_CONFIG||{};
-  if(!cfg.supabaseUrl||!cfg.supabaseAnonKey||!window.supabase){showLogin("La conexión con la base de datos todavía no está configurada.");$("#lgForm").hidden=true;return}
-  const sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});
-  window.__sb=sb;
-  $("#btnSalir").onclick=async()=>{await sb.auth.signOut();location.reload()};
-  $("#lgForm").onsubmit=async e=>{
-    e.preventDefault();const em=$("#lgEmail").value.trim(),pw=$("#lgPass").value;
-    $("#lgMsg").textContent="Ingresando…";
-    const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
-    if(error){$("#lgMsg").textContent="Mail o contraseña incorrectos.";return}
-    location.reload();
-  };
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){showLogin("");return}
-  $("#login").hidden=true;$("#band").hidden=false;$("#app").hidden=false;
-  $("#who").textContent=session.user.email||"";
-  db=mkDb(sb);downloads=mkDownloads();logoId="static";
-  $("#expXls").hidden=false;$("#expPdf").hidden=false;
-  renderLogo();
-  db.doc("config/sync").onSnapshot(s=>{syncInfo=s.exists?s.data():null;renderSync()},()=>{});
-  db.collection("casos").onSnapshot(s=>{
-    casos=s.docs.map(x=>({...x.data(),_id:x.id})).sort((a,b)=>(a.cliente||"").localeCompare(b.cliente||"","es"));
-    render();refreshDrawer();
-  },()=>{$("#main").innerHTML=`<div class="emptyall"><strong>Se cortó la conexión con los datos</strong><span class="note">Recargá la página para volver a ver los casos.</span></div>`});
+  $("#btnSalir").onclick=()=>{try{sessionStorage.removeItem("gl_pw")}catch(e){}location.reload()};
+  $("#lgForm").onsubmit=async e=>{e.preventDefault();const pw=$("#lgPass").value;if(!pw)return;$("#lgBtn").disabled=true;$("#lgMsg").textContent="Ingresando…";
+    try{await start(pw)}catch(err){$("#lgMsg").textContent=err.message;$("#lgBtn").disabled=false}};
+  let saved=null;try{saved=sessionStorage.getItem("gl_pw")}catch(e){}
+  if(saved){try{await start(saved);return}catch(e){}}
+  showLogin("");
 })();
 })();
 </script>
