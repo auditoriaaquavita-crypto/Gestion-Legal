@@ -533,7 +533,7 @@ function renderSync(){
   el.textContent=t;
 }
 /* ---------- datos cifrados en GitHub ---------- */
-const GH={owner:"auditoriaaquavita-crypto",repo:"gestion-legal",branch:"main",datos:"data/datos.enc.json",acceso:"data/acceso.enc.json"};
+const GH={owner:"auditoriaaquavita-crypto",repo:"Gestion-Legal",branch:"main",datos:"data/datos.enc.json",acceso:"data/acceso.enc.json"};
 const TE=new TextEncoder(),TD=new TextDecoder();
 const b64=u8=>{let x="";for(let i=0;i<u8.length;i+=0x8000)x+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(x)};
 const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
