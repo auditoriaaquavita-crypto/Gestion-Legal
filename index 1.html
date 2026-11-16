@@ -283,7 +283,7 @@ function render(){
   const act=casos.filter(c=>etapa(c)!=="cerrado");
   const by=k=>act.filter(c=>etapa(c)===k);
   $("#k-act").textContent=act.length;
-  $("#k-act-s").textContent=casos.length-act.length?`${casos.length-act.length} cerrados`:" ";
+  $("#k-act-s").textContent=casos.length-act.length?`${casos.length-act.length} cerrados`:" ";
   $("#k-monto").textContent=arsShort(act.reduce((s,c)=>s+Number(c.monto||0),0));
   $("#k-e0").textContent=by("sincd").length;
   $("#k-e1").textContent=by("carta").length;
