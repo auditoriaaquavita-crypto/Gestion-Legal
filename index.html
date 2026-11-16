@@ -283,7 +283,7 @@ function render(){
   $("#k-act-s").textContent=casos.length-act.length?`${casos.length-act.length} cerrados`:" ";
   $("#k-monto").textContent=arsShort(act.reduce((s,c)=>s+Number(c.monto||0),0));
   $("#k-e1").textContent=by("carta").length;
-  $("#k-e1-s").textContent=`${by("carta").filter(c=>(c.carta?.respuesta||"pendiente")==="pendiente").length} sin respuesta`;
+  $("#k-e1-s").textContent=`${by("carta").filter(c=>c.carta?.fechaEnvio&&(c.carta?.respuesta||"pendiente")==="pendiente").length} sin respuesta`;
   $("#k-e2").textContent=by("juicio").length;
   $("#k-e2-s").textContent=`${by("juicio").filter(c=>{const l=lastNov(c);return days(l?l.fecha:c.juicio.fechaDemanda)>SIN_NOV}).length} sin novedades +${SIN_NOV} d`;
   $("#k-e3").textContent=by("sentencia").length;
@@ -293,7 +293,7 @@ function render(){
   const al=[];
   act.forEach(c=>{const e=etapa(c);
     if(e==="carta"){
-      if(!c.carta?.fechaEnvio)al.push(["warn",c,"Carta documento sin fecha de envío"]);
+      if(!c.carta?.fechaEnvio){}
       else if((c.carta.respuesta||"pendiente")==="pendiente"&&days(c.carta.fechaEnvio)>PLAZO_CD)al.push(["warn",c,`CD enviada hace ${days(c.carta.fechaEnvio)} días sin respuesta registrada`]);
       else if(["niega","no_contesta"].includes(c.carta.respuesta))al.push(["bad",c,"Listo para iniciar juicio ejecutivo ("+RESP[c.carta.respuesta][0].toLowerCase()+")"]);
     }
@@ -315,14 +315,14 @@ function render(){
 }
 function card(c){
   const e=etapa(c);let pill="";
-  if(e==="carta"){const r=c.carta?.respuesta||"pendiente";pill=`<span class="pill ${RESP[r][1]}">${RESP[r][0]}</span>`}
+  if(e==="carta"){const r=c.carta?.respuesta||"pendiente";if(c.carta?.fechaEnvio||r!=="pendiente")pill=`<span class="pill ${RESP[r][1]}">${RESP[r][0]}</span>`}
   if(e==="juicio"){const l=lastNov(c),d=days(l?l.fecha:c.juicio.fechaDemanda);pill=d>SIN_NOV?`<span class="pill warn">Sin novedades ${d} d</span>`:`<span class="pill">En trámite</span>`}
   if(e==="sentencia"){const r=c.sentencia.resultado;pill=`<span class="pill ${r==="favorable"?"ok":r==="desfavorable"?"bad":"mute"}">${r==="favorable"?"Favorable":r==="desfavorable"?"Desfavorable":"Sin resultado"}</span>`}
   if(e==="cerrado")pill=`<span class="pill mute">Cerrado</span>`;
-  const ref=e==="carta"?(c.carta?.fechaEnvio?"CD "+fmtD(c.carta.fechaEnvio):"CD sin fecha"):e==="juicio"?"Expte. "+(c.juicio.expediente||"s/n"):e==="sentencia"?"Sent. "+fmtD(c.sentencia.fecha):"";
+  const ref=e==="carta"?(c.carta?.fechaEnvio?"CD "+fmtD(c.carta.fechaEnvio):""):e==="juicio"?"Expte. "+(c.juicio.expediente||"s/n"):e==="sentencia"?"Sent. "+fmtD(c.sentencia.fecha):"";
   const l=lastNov(c);
   return `<button class="card" data-open="${esc(c._id)}"><span class="r1"><span class="name">${esc(c.cliente||"Sin nombre")}</span>${pill}</span>
-  <span class="meta"><span class="monto">${ars(c.monto)}</span>${c.nroCliente?`<span>N° ${esc(c.nroCliente)}</span>`:""}<span>${esc(ref)}</span>${c.swsClienteId?'<span class="pill mute" title="Importado desde SWS">SWS</span>':""}${c.sinEtiquetaSws?'<span class="pill warn">Sin etiqueta en SWS</span>':""}</span>
+  <span class="meta"><span class="monto">${ars(c.monto)}</span>${c.nroCliente?`<span>N° ${esc(c.nroCliente)}</span>`:""}${ref?`<span>${esc(ref)}</span>`:""}${c.swsClienteId?'<span class="pill mute" title="Importado desde SWS">SWS</span>':""}${c.sinEtiquetaSws?'<span class="pill warn">Sin etiqueta en SWS</span>':""}</span>
   ${l?`<span class="last">${fmtD(l.fecha)} · ${esc(l.texto)}</span>`:""}</button>`;
 }
 
